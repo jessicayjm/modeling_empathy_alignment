@@ -1,0 +1,93 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*/__pycache__/
+*.py[cod]
+
+# C extensions
+*.so
+
+# Distribution / packaging
+bin/
+build/
+develop-eggs/
+dist/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+.tox/
+.coverage
+.cache
+nosetests.xml
+coverage.xml
+
+# Translations
+*.mo
+
+# Mr Developer
+.mr.developer.cfg
+.project
+.pydevproject
+
+# Rope
+.ropeproject
+
+# Django stuff:
+*.log
+*.pot
+
+# Sphinx documentation
+docs/_build/
+
+# data and logs
+data/*
+data/*.json
+data/*.csv
+data/cased_all_include_full_info/
+data/uncased_all_include_full_info/
+data/cased_wo_AA_include_full_info/
+data/uncased_wo_AA_include_full_info/
+data/prompts/
+*/runs/
+*/models_backup/
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/
+bloom/cache/
+bloom/few_shot_prompts/
+bloom/zero_shot_prompts/
+bloom/model7b1/
+bloom/offload/
+flan-t5/lightning_logs/
+peft-flan-t5-xl/
+
+# samples
+openprompt/example_super_glue/
+openprompt/example.py
+openprompt/trained_backend
+
+#dstore
+knn/dstores/
+knn/outputs/
+
+*.csv
+*.json
+
+# bash
+snn/bagel*.sh
+snn/taco*.sh
+snn/curry*.sh
+snn/sushi*.sh
+
+# intermediate data
+src/analysis_jy/data/
