@@ -112,7 +112,7 @@ def combine_sents(texts, mappings, predictions, id2labels, **kwargs):
                     'text': text,
                     'spans': spans
                 }) 
-            text = ""
+            text = target_prefix
             spans = []
             prev_text = order[0]
         elif len(text) + len(observer_prefix) == order[2]: # observer part

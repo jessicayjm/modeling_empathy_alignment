@@ -44,10 +44,10 @@ def get_args():
     parser.add_argument('--early_stopping_cutoff', type=int, default=10)
     parser.add_argument('--batch_size', type=int)
     parser.add_argument('--shuffle', action='store_true')
-    parser.add_argument('--loss', type=str, choices=loss_funcs, default="contrastive_loss")
-    parser.add_argument('--pos_weight', type=float, default=None)
-    parser.add_argument('--m', type=float, help="hyparameter to control contrastive loss")
-    parser.add_argument('--lmbda', type=float, help="hyparameter to control the contribution of contrastive loss")
+    parser.add_argument('--loss', type=str, choices=loss_funcs, default="mse_loss")
+    parser.add_argument('--pos_weight', type=float, default=5)
+    parser.add_argument('--m', type=float, help="hyparameter to control contrastive loss", default=1)
+    parser.add_argument('--lmbda', type=float, help="hyparameter to control the contribution of contrastive loss", default=0.8)
     parser.add_argument('--optimizer', type=str, choices=['AdamW', 'SGD'], default='AdamW')
     parser.add_argument('--lr', type=float, default=0.0001)
     parser.add_argument('--momentum', type=float, default=0.9)
@@ -89,9 +89,9 @@ def get_args():
     if torch.cuda.is_available() and args.device=='cuda' and args.cuda!=-1:
         torch.cuda.set_device(args.cuda)
 
-    # now, root_save_path = prepare_saving(args.saving_folder, args.model_name.replace("/", "_"), args.checkpoint_save_path, args.output_alignments_path)
-    # logfile_path = f'{root_save_path}/output.log'
-    # logging.basicConfig(filename=logfile_path, level=logging.INFO)
+    now, root_save_path = prepare_saving(args.saving_folder, args.model_name.replace("/", "_"), args.checkpoint_save_path, args.output_alignments_path)
+    logfile_path = f'{root_save_path}/output.log'
+    logging.basicConfig(filename=logfile_path, level=logging.INFO)
 
     if args.random_seed != None:
         random.seed(args.random_seed)
@@ -103,8 +103,7 @@ def get_args():
             torch.backends.cudnn.deterministic=True
             torch.backends.cudnn.benchmark = False
     
-    # return args, root_save_path
-    return args, None
+    return args, root_save_path
 
 
 def train(train_loader, model, loss_func, optimizer, alignments_output=None, **kwargs):
@@ -174,7 +173,7 @@ def train(train_loader, model, loss_func, optimizer, alignments_output=None, **k
                 alignments_output[text_id].append(full_train_alignments[i])
 
     metrics = get_metrics(all_labels, all_predictions, id2labels=None, metrics=kwargs["metrics"], process_data=None)
-    # logging.info(f"train loss: {round(train_loss, 5)} \t train metrics: {metrics}")
+    logging.info(f"train loss: {round(train_loss, 5)} \t train metrics: {metrics}")
 
 # @resource_usage_monitor
 def evaluate(test_loader, model, loss_func, dataset_name, alignments_output=None, **kwargs):
@@ -249,7 +248,7 @@ def evaluate(test_loader, model, loss_func, dataset_name, alignments_output=None
                 alignments_output[text_id].append(full_test_alignments[i])
 
     metrics = get_metrics(all_labels, all_predictions, id2labels=None, metrics=kwargs["metrics"], process_data=None)
-    # logging.info(f"{dataset_name} loss: {round(test_loss, 5)} \t {dataset_name} metrics: {metrics}")  
+    logging.info(f"{dataset_name} loss: {round(test_loss, 5)} \t {dataset_name} metrics: {metrics}")  
 
     return test_loss
 
@@ -263,8 +262,8 @@ def _main():
         assert("must specify test_to_alignment to use full_target_model_output")
 
     # saving the model configurations
-    # with open(f'{root_save_path}/config.json', 'w') as model_config_file:
-    #     json.dump(args.__dict__, model_config_file, indent=4)
+    with open(f'{root_save_path}/config.json', 'w') as model_config_file:
+        json.dump(args.__dict__, model_config_file, indent=4)
 
 
     # load tokenizer
@@ -383,6 +382,7 @@ def _main():
 
     if args.loss == "contrastive_loss":
         loss = contrastive_loss
+        assert('format not supported, need modification')
     elif args.loss == "mse_loss":
         loss = mse_loss
     elif args.loss == "simple_cross_entropy_loss":

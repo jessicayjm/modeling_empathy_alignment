@@ -1,11 +1,39 @@
 import re
 from bisect import bisect
-import logging
-from collections import defaultdict
-
-import numpy as np
 import torch
-from sentence_transformers import InputExample
+import re
+import logging
+import argparse
+import pandas as pd
+import torch
+from transformers import AutoTokenizer
+from dataset import AlignmentDataset
+
+
+import sys
+sys.path.append('..')
+from variables import labels
+
+
+def get_args():
+    # parsers
+    parser = argparse.ArgumentParser(description='Siamese Network for alignment detection')
+
+    # model specifications
+    parser.add_argument('--test_data', type=str, default=None)
+    parser.add_argument('--tokenizer', type=str, default='bert-base-cased')
+    parser.add_argument('--target_num_neighbors', type=int, default=0)
+    parser.add_argument('--target_context_pos', choices=['preceding', 'succeeding', 'surround', None], type=str, default=None)
+    parser.add_argument('--observer_num_neighbors', type=int, default=0)
+    parser.add_argument('--observer_context_pos', choices=['preceding', 'succeeding', 'surround', None], type=str, default=None)
+    parser.add_argument('--labels', nargs='+', choices=labels, default=labels)
+
+    parser.add_argument('--dataset_save_path', type=str, default=None)
+
+    args = parser.parse_args()
+    return args
+
+
 
 class BaseDataset():
     def __init__(self, df, **kwargs):
@@ -13,7 +41,7 @@ class BaseDataset():
 
         self.target_prefix = 'target:\n\n'
         self.observer_prefix = '\n\nobserver:\n\n'
-        self.texts = df['full_text']
+        self.texts = self.df['full_text']
         self.df['target_len'] = self.df['target_text'].str.len() + len(self.target_prefix) + len(self.observer_prefix)
     
         self.target_context_pos = kwargs['target_context_pos']
@@ -21,7 +49,9 @@ class BaseDataset():
         self.observer_context_pos = kwargs['observer_context_pos']
         self.observer_num_neighbors = kwargs['observer_num_neighbors']
         self.label_names = kwargs['label_names']
-        self.to_alignment = kwargs['to_alignment']
+        self.tokenizer = kwargs['tokenizer']
+
+        self.save_path = kwargs["save_path"]
 
     def get_texts(self):
         return self.texts
@@ -30,23 +60,28 @@ class BaseDataset():
 class AlignmentDataset(BaseDataset):
     def __init__(self, df, **kwargs):
         super().__init__(df, **kwargs)
-        if self.to_alignment:
-            self.targets, \
-            self.observers, \
-            self.labels, \
-            self.ori_alignments, \
-            self.text_mappings = self._create_pairs()
-        else:
-            self.targets, \
-            self.observers, \
-            self.labels = self._create_pairs()
+        self.target_spans_input_ids, \
+        self.target_spans_attention_mask, \
+        self.observer_spans_input_ids, \
+        self.observer_spans_attention_mask, \
+        self.labels, \
+        self.ori_alignments, \
+        self.text_mappings = self._create_pairs_tokenized()
 
-    def get_stats(self):
-        logging.info('############## Dataset Stats ##############')
-        logging.info(f'number of texts: {len(self.texts)}')
-        logging.info(f'total number of alignments: {int(np.array(self.labels).sum().item())}')
-        logging.info(f'total number of pairs: {np.array(self.labels).shape[0]}')
-        logging.info('###########################################')
+
+    def save_dataset(self):
+        if not self.save_path:
+            assert("save path is None")
+        save_data = {
+            "target_spans_input_ids": self.target_spans_input_ids,
+            "target_spans_attention_mask": self.target_spans_attention_mask,
+            "observer_spans_input_ids": self.observer_spans_input_ids,
+            "observer_spans_attention_mask": self.observer_spans_attention_mask,
+            "labels": self.labels,
+            "ori_alignments": self.ori_alignments,
+            "text_mappings": self.text_mappings
+        }
+        torch.save(save_data, self.save_path)           
 
     '''split the text into sentences to provide context'''
     def _get_sentence_split_pos(self, text):
@@ -117,13 +152,12 @@ class AlignmentDataset(BaseDataset):
     labels (torch.LongTensor)
     text_mappings (torch.LongTensor): text_idx in order to find where the span is
     '''
-    def _create_pairs(self):
+    def _create_pairs_tokenized(self):
         def process_one_instance(row):
             # alignment pairs
             alignment_pairs = [(align[0][0], align[0][1], align[1][0], align[1][1]) for align in row["alignments"]]
             # get target spans and observer spans
-            if self.to_alignment:
-                output_ori_alignments = []
+            output_ori_alignments = []
             target_spans = []
             observer_spans = []
             for ann in row['spans']:
@@ -143,9 +177,7 @@ class AlignmentDataset(BaseDataset):
                         or target_span[2] == "Advice" and observer_span[2] == "Objective Experience" \
                         or target_span[2] == "Anticipated Effort" and observer_span[2] == "Objective Experience": 
                         continue
-                    if self.to_alignment:
-                        # relative to full_text
-                        output_ori_alignments.append([target_span[0]+len(self.target_prefix), target_span[1]+len(self.target_prefix), observer_span[0]+row['target_len'], observer_span[1]+row['target_len']])
+                    output_ori_alignments.append([target_span[0]+len(self.target_prefix), target_span[1]+len(self.target_prefix), observer_span[0]+row['target_len'], observer_span[1]+row['target_len']])
                     if (target_span[0]+len(self.target_prefix), target_span[1]+len(self.target_prefix), observer_span[0]+row['target_len'], observer_span[1]+row['target_len']) in alignment_pairs:
                         output_labels.append(1)
                     else:
@@ -167,34 +199,61 @@ class AlignmentDataset(BaseDataset):
                     output_observers.append(observer_span[0])
             # sanity check
             assert(len(output_targets)==len(output_observers))
-            if self.to_alignment:
-                assert(len(output_ori_alignments)==len(output_targets))
-            if self.to_alignment:
-                return output_targets, output_observers, output_labels, output_ori_alignments
-            return output_targets, output_observers, output_labels
+            assert(len(output_ori_alignments)==len(output_targets))
+            return output_targets, output_observers, output_labels, output_ori_alignments
 
-        if self.to_alignment:
-            ori_alignments = []
+        ori_alignments = []
         targets = []
         observers = []
         labels = []
         text_mappings = [] # for mapping the alignment back
-        for text_idx, row in self.df.iterrows():
-            if self.to_alignment:
-                output_targets, output_observers, output_labels, output_ori_alignments = process_one_instance(row)
-                ori_alignments += output_ori_alignments
-                text_mappings += [text_idx] * len(output_targets)
+        for row_idx, row in self.df.iterrows():
+            if "target_seq_id" and "observer_seq_id" in row.keys():
+                text_idx = [row["target_seq_id"],row["observer_seq_id"]]
             else:
-                output_targets, output_observers, output_labels = process_one_instance(row)
+                text_idx = row_idx
+            output_targets, output_observers, output_labels, output_ori_alignments = process_one_instance(row)
+            ori_alignments += output_ori_alignments
+            text_mappings += [text_idx] * len(output_targets)
+                
             targets += output_targets
             observers += output_observers
             labels += output_labels
-        if self.to_alignment:
-            return targets, observers, labels, ori_alignments, text_mappings    
-        return targets, observers, labels
+
+        # print(text_mappings[12200:12225])
+        # exit(0)    
+        # tokenize
+        target_spans_encodings = self.tokenizer(targets, padding=True, truncation=True)
+        target_spans_input_ids = target_spans_encodings['input_ids']
+        target_spans_attention_mask = target_spans_encodings['attention_mask']
+        observer_spans_encodings = self.tokenizer(observers, padding=True, truncation=True)
+        observer_spans_input_ids = observer_spans_encodings['input_ids']
+        observer_spans_attention_mask = observer_spans_encodings['attention_mask']
+        return torch.LongTensor(target_spans_input_ids), \
+                torch.LongTensor(target_spans_attention_mask), \
+                torch.LongTensor(observer_spans_input_ids), \
+                torch.LongTensor(observer_spans_attention_mask), \
+                torch.Tensor(labels).type(torch.FloatTensor), \
+                torch.LongTensor(ori_alignments), \
+                torch.LongTensor(text_mappings)
+
+
+def _main():
+    args = get_args()
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
     
-    def get_examples(self):
-        examples = []
-        for i in range(len(self.targets)):
-            examples.append(InputExample(texts=[self.targets[i],self.observers[i]], label=self.labels[i]))
-        return examples
+    dataset_params = {
+        'tokenizer': tokenizer,
+        'label_names': args.labels,
+        'target_num_neighbors': args.target_num_neighbors,
+        'target_context_pos': args.target_context_pos,
+        'observer_num_neighbors': args.observer_num_neighbors,
+        'observer_context_pos': args.observer_context_pos,
+        'save_path': args.dataset_save_path
+    }
+    test_df = pd.read_json(args.test_data)
+    testset = AlignmentDataset(test_df, **dataset_params)
+    testset.save_dataset()
+
+if __name__ == '__main__':
+    _main()

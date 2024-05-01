@@ -242,19 +242,6 @@ class AlignmentDataset(BaseDataset, torch.utils.data.Dataset):
         observer_spans_encodings = self.tokenizer(observers, padding=True, truncation=True)
         observer_spans_input_ids = observer_spans_encodings['input_ids']
         observer_spans_attention_mask = observer_spans_encodings['attention_mask']
-        # if self.to_alignment:
-        #     return torch.LongTensor(target_spans_input_ids), \
-        #         torch.LongTensor(target_spans_attention_mask), \
-        #         torch.LongTensor(observer_spans_input_ids), \
-        #         torch.LongTensor(observer_spans_attention_mask), \
-        #         torch.Tensor(labels).type(torch.FloatTensor), \
-        #         torch.LongTensor(ori_alignments), \
-        #         torch.LongTensor(text_mappings)
-        # return torch.LongTensor(target_spans_input_ids), \
-        #         torch.LongTensor(target_spans_attention_mask), \
-        #         torch.LongTensor(observer_spans_input_ids), \
-        #         torch.LongTensor(observer_spans_attention_mask), \
-        #         torch.Tensor(labels).type(torch.FloatTensor)
         if self.to_alignment:
             return torch.LongTensor(target_spans_input_ids), \
                 torch.LongTensor(target_spans_attention_mask), \
@@ -273,19 +260,6 @@ class AlignmentDataset(BaseDataset, torch.utils.data.Dataset):
         return self.labels.shape[0]
 
     def __getitem__(self, idx):
-        # if self.to_alignment:
-        #     return self.target_spans_input_ids[idx], \
-        #        self.target_spans_attention_mask[idx], \
-        #        self.observer_spans_input_ids[idx], \
-        #        self.observer_spans_attention_mask[idx], \
-        #        self.labels[idx], \
-        #        self.ori_alignments[idx], \
-        #        self.text_mappings[idx]
-        # return self.target_spans_input_ids[idx], \
-        #        self.target_spans_attention_mask[idx], \
-        #        self.observer_spans_input_ids[idx], \
-        #        self.observer_spans_attention_mask[idx], \
-        #        self.labels[idx]
         if self.to_alignment:
             return self.target_spans_input_ids[idx], \
                self.target_spans_attention_mask[idx], \
@@ -299,6 +273,7 @@ class AlignmentDataset(BaseDataset, torch.utils.data.Dataset):
                self.observer_spans_input_ids[idx], \
                self.observer_spans_attention_mask[idx], \
                self.labels[idx]
+
 
 class AlignmentDatasetFullTarget(BaseDataset, torch.utils.data.Dataset):
     def __init__(self, df, **kwargs):
