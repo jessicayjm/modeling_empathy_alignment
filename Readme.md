@@ -1,6 +1,8 @@
 # Modeling Empathetic Alignment in Conversation
 
-This repo contains all code for paper [Modeling Empathetic Alignment in Conversation]().
+This repo contains all code for paper [Modeling Empathetic Alignment in Conversation](https://arxiv.org/abs/2405.00948).
+
+Code for the annotation website tool of this project is [here](https://github.com/jessicayjm/span_alignment_annotation_tool).
 
 #### General Work-flow
 
@@ -13,9 +15,7 @@ Two models are performed for the final prediction of whether two appraisal align
 
 The input format is the same for both tasks.
 
-The input file is a `json` file. 
-
-Easier to prepare the data by creating a `pd.Dataframe` with the following labels and convert it to `json` file:
+The input file is a `json` file. Easier to prepare the data by creating a `pd.Dataframe` with the following labels and convert it to `json` file:
 
 | id   | target_id | observer_id | parent_id | subreddit | target_text | observer_text | distress_score | condolence_score | empathy_score | full_text | spans                      | alignments                                                   |
 | ---- | --------- | ----------- | --------- | --------- | ----------- | ------------- | -------------- | ---------------- | ------------- | --------- | -------------------------- | ------------------------------------------------------------ |
@@ -74,6 +74,3 @@ Commands are in `snn/run.sh`. Modify for your own use (data paths, hyper-paramet
 All available arguments are at the top of `snn/train.py`.
 
 `evaluation_only` available.
-
-#### Citation
-
