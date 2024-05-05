@@ -99,8 +99,8 @@ mkdir -p runs
 # python train.py \
 #     --test_data ${} \
 #     --prompt_file ./prompts/prompt1 \
-#     --model_family bert \
-#     --model_name bert-large-uncased \
+#     --model_family roberta \
+#     --model_name roberta-large \
 #     --load_checkpoint ${} \
 #     --batch_size 2\
 #     --max_seq_length 512 \
