@@ -4,9 +4,14 @@ This repo contains all code for paper [Modeling Empathetic Alignment in Conversa
 
 Code for the annotation website tool of this project is [here](https://github.com/jessicayjm/span_alignment_annotation_tool).
 
+To use the trained model directly, please check Huggingface:
+
++ [Appraisal prediction](https://huggingface.co/Blablablab/empathy-appraisal-span)
++ [Alignment prediction](https://huggingface.co/Blablablab/empathy-appraisal-alignment)
+
 #### General Work-flow
 
-Two models are performed for the final prediction of whether two appraisal aligned or not:
+Two models are performed in sequence for the final prediction of whether two appraisal aligned or not:
 
 1. Appraisal prediction
 2. Alignment prediction given appraisals
